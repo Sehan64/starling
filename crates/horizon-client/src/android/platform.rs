@@ -341,6 +341,67 @@ pub fn open_documents(id: &str) -> bool {
     })
     .is_some()
 }
+/// Whether the user granted notification access (the media-session
+/// notification listener) to this app. Reads the secure setting Android
+/// fills in when a listener is granted; the launcher shows it on the
+/// start-up menu, the mods' `lyrics` capability as well.
+pub fn notification_access() -> bool {
+    with_context(|env, activity| {
+        let resolver = env
+            .call_method(
+                activity,
+                "getContentResolver",
+                "()Landroid/content/ContentResolver;",
+                &[],
+            )?
+            .l()?;
+        let key = JObject::from(env.new_string("enabled_notification_listeners")?);
+        let setting = env.call_static_method(
+            "android/provider/Settings$Secure",
+            "getString",
+            "(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;",
+            &[JValue::Object(&resolver), JValue::Object(&key)],
+        )?;
+        let setting = setting.l()?;
+        if setting.is_null() {
+            return Ok(false);
+        }
+        let setting: String = env.get_string((&setting).into())?.into();
+        let package = env
+            .call_method(activity, "getPackageName", "()Ljava/lang/String;", &[])?
+            .l()?;
+        let package: String = env.get_string((&package).into())?.into();
+        // `package/Class` entries, colon separated.
+        Ok(setting
+            .split(':')
+            .any(|entry| entry.trim().starts_with(&format!("{package}/"))))
+    })
+    .unwrap_or(false)
+}
+
+/// Opens Android's notification access screen, where the player grants
+/// this app the media-session listener. Android cannot grant it silently.
+pub fn request_notification_listener() -> bool {
+    with_context(|env, activity| {
+        let action =
+            JObject::from(env.new_string("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")?);
+        let intent = env.new_object(
+            "android/content/Intent",
+            "(Ljava/lang/String;)V",
+            &[JValue::Object(&action)],
+        )?;
+        env.call_method(
+            activity,
+            "startActivity",
+            "(Landroid/content/Intent;)V",
+            &[JValue::Object(&intent)],
+        )?;
+        Ok(())
+    })
+    .is_some()
+}
+
+
 pub fn open_url(url: &str) -> bool {
     if !url.starts_with("https://") && !url.starts_with("http://") {
         return false;

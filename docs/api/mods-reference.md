@@ -468,6 +468,31 @@ A line of text in the world. `set-world-text` draws it.
 | `sparkle` | `bool` | Small stars twinkling and drifting near the glyphs. |
 | `see-through` | `bool` | Drawn over everything: the glyphs ignore the depth of the world. |
 
+### record `world-text2`
+
+`world-text` with the level-9 styling knobs.
+
+| Field | Type | |
+| --- | --- | --- |
+| `text` | `string` |  |
+| `at` | `tuple<f32, f32, f32>` | Where it hangs, in world blocks. |
+| `scale` | `f32` | Scale: 1.0 is a name tag's letters (~0.23 blocks tall). |
+| `color` | `u32` | 0xAARRGGBB. |
+| `gradient` | `option<u32>` | 0xAARRGGBB; the letters fade from `color` to this, left to right. |
+| `rainbow` | `bool` |  |
+| `bold` | `bool` |  |
+| `shadow` | `bool` |  |
+| `glow` | `bool` |  |
+| `sparkle` | `bool` |  |
+| `see-through` | `bool` |  |
+| `letter-spacing` | `f32` | Extra advance per glyph, in GUI pixels: 0 is the font's own. |
+| `roll` | `f32` | Rotation of the line in its billboard plane, in degrees. |
+| `outline` | `option<u32>` | Outline colour; none for no outline. The outline is drawn as `outline-thickness` offset copies of the line behind it. |
+| `outline-thickness` | `f32` | Outline thickness in GUI pixels: 0.5 to 2. |
+| `background` | `option<u32>` | Background box colour behind the line; none for none. |
+| `glow-color` | `option<u32>` | Halo colour instead of the text colour for `glow`; this colour's alpha scales the halo (low for soft, full for strong). |
+| `sparkle-amount` | `f32` | Multiplier for the number and size of sparkles: 0 is none, 1 the normal amount. |
+
 | Function | Signature | What it does |
 | --- | --- | --- |
 | `set-hud` | `func(shapes: list<shape>)` | Replaces the mod's HUD shapes: up to 1024, drawn every frame in order over the HUD (after the hotbar, under chat and screens), hidden with the HUD (F1). An empty list removes them. |
@@ -481,6 +506,7 @@ A line of text in the world. `set-world-text` draws it.
 | `set-minimap` | `func(minimap: option<minimap>)` | Shows a map of the world around the player in `corner`, stacked with the game's overlays and the mods' panels, until the next call (none hides it). It looks like a map item: vanilla's map colours with their height shading and water depth, and the player's arrow. Underground, under a roof and in the Nether it maps the floor around the player's height. The game keeps the map's tiles and refreshes them within its own frame budget; hidden, they are dropped. One map shows at a time: the first loaded mod's. |
 | `set-far-terrain` | `func(far-terrain: option<far-terrain>)` | Draws the world beyond the render distance as distant terrain, out to `distance` chunks, until the next call (none ends it). The game builds it on its own workers, from the chunks already loaded or saved and, where nobody has been, from the world's generator; the simulation distance doesn't change. Only worlds whose generator the game has (single player and a LAN world you host) show it. The player's own LOD Distance setting, when on, wins. One far terrain shows at a time: the first loaded mod's. |
 | `set-world-text` | `func(texts: list<world-text>)` | Replaces the mod's world texts, drawn billboarded to the camera until replaced (an empty list removes them). At most 64; the rest are dropped. |
+| `set-world-text2` | `func(texts: list<world-text2>)` | Replaces the mod's world texts, drawn billboarded to the camera until replaced (an empty list removes them). At most 64; the rest are dropped. |
 
 ## `events`
 

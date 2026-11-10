@@ -141,8 +141,11 @@ pub fn fetch_lrclib(
             let body = response.into_string().map_err(|e| format!("lrclib: {e}"))?;
             let parsed: serde_json::Value = serde_json::from_str(&body)
                 .map_err(|_| "lrclib answered with invalid JSON".to_string())?;
-            return from_lrclib_track(&parsed)
-                .ok_or_else(|| "no synced lyrics found for this track".to_string());
+            // A get without synced lyrics is not the end: it returned a
+            // track with plain lyrics only, and search may carry syncs.
+            if let Some(found) = from_lrclib_track(&parsed) {
+                return Ok(found);
+            }
         }
         Err(ureq::Error::Status(404, _)) => {}
         Err(ureq::Error::Status(code, _)) => {

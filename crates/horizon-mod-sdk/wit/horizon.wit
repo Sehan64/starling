@@ -463,6 +463,45 @@ interface render {
     /// until replaced (an empty list removes them). At most 64; the rest
     /// are dropped.
     set-world-text: func(texts: list<world-text>);
+    /// `world-text` with the level-9 styling knobs.
+    record world-text2 {
+        text: string,
+        /// Where it hangs, in world blocks.
+        at: tuple<f32, f32, f32>,
+        /// Scale: 1.0 is a name tag's letters (~0.23 blocks tall).
+        scale: f32,
+        /// 0xAARRGGBB.
+        color: u32,
+        /// 0xAARRGGBB; the letters fade from `color` to this, left to right.
+        gradient: option<u32>,
+        rainbow: bool,
+        bold: bool,
+        shadow: bool,
+        glow: bool,
+        sparkle: bool,
+        see-through: bool,
+        /// Extra advance per glyph, in GUI pixels: 0 is the font's own.
+        letter-spacing: f32,
+        /// Rotation of the line in its billboard plane, in degrees.
+        roll: f32,
+        /// Outline colour; none for no outline. The outline is drawn as
+        /// `outline-thickness` offset copies of the line behind it.
+        outline: option<u32>,
+        /// Outline thickness in GUI pixels: 0.5 to 2.
+        outline-thickness: f32,
+        /// Background box colour behind the line; none for none.
+        background: option<u32>,
+        /// Halo colour instead of the text colour for `glow`; this colour's
+        /// alpha scales the halo (low for soft, full for strong).
+        glow-color: option<u32>,
+        /// Multiplier for the number and size of sparkles: 0 is none,
+        /// 1 the normal amount.
+        sparkle-amount: f32,
+    }
+    /// Replaces the mod's world texts, drawn billboarded to the camera
+    /// until replaced (an empty list removes them). At most 64; the rest
+    /// are dropped.
+    set-world-text2: func(texts: list<world-text2>);
 }
 
 /// What the game calls. Only the hooks `init` asks for are ever called.

@@ -422,6 +422,8 @@ struct State {
     corner: Option<CornerPanel>,
     /// Capability `render`'s world texts, drawn in the world until replaced.
     world_text: Vec<WorldTextShape>,
+    /// Capability `render`'s level-9 world texts (`world-text2`).
+    world_text2: Vec<WorldTextShape2>,
     /// Capability `lyrics`'s platform, lent by the game.
     lyrics: Arc<dyn LyricsPlatform>,
     /// Capability `render`'s zoom, when the mod zooms.
@@ -659,6 +661,7 @@ impl Mods {
             shapes: Vec::new(),
             corner: None,
             world_text: Vec::new(),
+            world_text2: Vec::new(),
             lyrics,
             zoom: None,
             minimap: None,
@@ -1009,6 +1012,13 @@ impl Mods {
             .iter()
             .filter_map(|e| e.run.as_ref())
             .flat_map(|run| run.store.data().world_text.iter())
+    }
+    /// The running mods' level-9 world texts (capability `render`), in load order.
+    pub fn world_texts2(&self) -> impl Iterator<Item = &WorldTextShape2> {
+        self.entries
+            .iter()
+            .filter_map(|e| e.run.as_ref())
+            .flat_map(|run| run.store.data().world_text2.iter())
     }
     /// Some running mod calls `game.raycast`: the snapshot needs a
     /// [`Snapshot::view_hit`].
@@ -1822,6 +1832,83 @@ const WORLD_TEXT_CHARS: usize = 256;
 /// `set-world-text`'s scale bounds.
 const WORLD_TEXT_SCALE: (f32, f32) = (0.05, 16.0);
 
+/// One text a mod put in the world, with the level-9 styling knobs:
+/// letter spacing, billboard-plane rotation, an outline and a background
+/// box, a glow in its own colour, and a sparkle multiplier.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WorldTextShape2 {
+    pub text: String,
+    pub at: [f32; 3],
+    /// Scale: 1.0 is a name tag's letters (~0.23 blocks tall).
+    pub scale: f32,
+    /// 0xAARRGGBB.
+    pub color: u32,
+    pub gradient: Option<u32>,
+    pub rainbow: bool,
+    pub bold: bool,
+    pub shadow: bool,
+    pub glow: bool,
+    pub sparkle: bool,
+    pub see_through: bool,
+    /// Extra advance per glyph, in GUI pixels (0 is the font's own).
+    pub letter_spacing: f32,
+    /// Rotation of the line in its billboard plane, in degrees.
+    pub roll: f32,
+    pub outline: Option<u32>,
+    /// Outline thickness in GUI pixels, 0.5 to 2.
+    pub outline_thickness: f32,
+    pub background: Option<u32>,
+    pub glow_color: Option<u32>,
+    /// Multiplier for the number and size of sparkles (0 is none).
+    pub sparkle_amount: f32,
+}
+/// Characters of one `world-text2`'s line.
+const WORLD_TEXT_LINE: usize = WORLD_TEXT_CHARS;
+/// `world-text2`'s extra knobs' limits.
+const WORLD_TEXT_LETTER_SPACING: f32 = 4.0;
+const WORLD_TEXT_OUTLINE: (f32, f32) = (0.5, 2.0);
+const WORLD_TEXT_SPARKLE: (f32, f32) = (0.0, 2.0);
+const WORLD_TEXT_ROLL: f32 = 180.0;
+
+fn clip_world_text2(
+    shapes: Vec<render_bindings::horizon::mods::render::WorldText2>,
+) -> Vec<WorldTextShape2> {
+    shapes
+        .into_iter()
+        .take(WORLD_TEXTS)
+        .map(|t| {
+            let clamp_finite =
+                |v: f32, lo: f32, hi: f32| if v.is_finite() { v.clamp(lo, hi) } else { 0.0 };
+            let scale = if t.scale.is_finite() {
+                t.scale.clamp(WORLD_TEXT_SCALE.0, WORLD_TEXT_SCALE.1)
+            } else {
+                1.0
+            };
+            WorldTextShape2 {
+                text: t.text.chars().take(WORLD_TEXT_LINE).collect(),
+                at: [t.at.0, t.at.1, t.at.2].map(|v| if v.is_finite() { v } else { 0.0 }),
+                scale,
+                color: t.color,
+                gradient: t.gradient,
+                rainbow: t.rainbow,
+                bold: t.bold,
+                shadow: t.shadow,
+                glow: t.glow,
+                sparkle: t.sparkle,
+                see_through: t.see_through,
+                letter_spacing: clamp_finite(t.letter_spacing, 0.0, WORLD_TEXT_LETTER_SPACING),
+                roll: clamp_finite(t.roll, -WORLD_TEXT_ROLL, WORLD_TEXT_ROLL),
+                outline: t.outline,
+                outline_thickness: clamp_finite(t.outline_thickness, WORLD_TEXT_OUTLINE.0, WORLD_TEXT_OUTLINE.1),
+                background: t.background,
+                glow_color: t.glow_color,
+                sparkle_amount: clamp_finite(t.sparkle_amount, WORLD_TEXT_SPARKLE.0, WORLD_TEXT_SPARKLE.1),
+            }
+        })
+        .filter(|t| !t.text.trim().is_empty())
+        .collect()
+}
+
 fn clip_world_text(
     shapes: Vec<render_bindings::horizon::mods::render::WorldText>,
 ) -> Vec<WorldTextShape> {
@@ -1834,7 +1921,7 @@ fn clip_world_text(
             } else {
                 1.0
             };
-            let shape = WorldTextShape {
+            WorldTextShape {
                 text: t.text.chars().take(WORLD_TEXT_CHARS).collect(),
                 at: [t.at.0, t.at.1, t.at.2].map(|v| if v.is_finite() { v } else { 0.0 }),
                 scale,
@@ -1846,8 +1933,7 @@ fn clip_world_text(
                 glow: t.glow,
                 sparkle: t.sparkle,
                 see_through: t.see_through,
-            };
-            shape
+            }
         })
         // Empty lines draw nothing; the game skips them.
         .filter(|t| !t.text.trim().is_empty())
@@ -1996,6 +2082,9 @@ impl render::Host for State {
     }
     fn set_world_text(&mut self, shapes: Vec<render::WorldText>) {
         self.world_text = clip_world_text(shapes);
+    }
+    fn set_world_text2(&mut self, shapes: Vec<render::WorldText2>) {
+        self.world_text2 = clip_world_text2(shapes);
     }
     fn frame_stats(&mut self) -> FrameRate {
         let (fps, min, low) = self.snapshot.frame;

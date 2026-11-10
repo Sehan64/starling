@@ -175,6 +175,8 @@ mod lightning;
 mod llamas;
 mod locator_bar;
 mod loom;
+#[cfg(all(feature = "mods", target_os = "android"))]
+mod lyrics;
 mod mace;
 mod machines;
 mod maps;
@@ -187,6 +189,8 @@ mod mod_input;
 #[cfg(feature = "mods")]
 mod mod_panel;
 mod mod_render;
+#[cfg(feature = "mods")]
+mod mod_world_text;
 mod mods;
 mod mount_menu;
 mod mounts;
@@ -10561,6 +10565,8 @@ impl Game<'_> {
         self.test_instance_marker_geometry(camera, &mut out, &mut see_through);
         self.debug_renderer_geometry(camera, &mut out);
         self.text_display_geometry(camera, alpha, &mut out, &mut see_through);
+        #[cfg(feature = "mods")]
+        self.mod_world_text_geometry(camera, &mut out, &mut see_through);
         self.see_through_vertices = see_through;
         // Entity shadows (EntityRenderer.extractShadow).
         self.mark_translucent_entity(out.len(), "minecraft:entity_shadow");

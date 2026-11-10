@@ -402,6 +402,46 @@ pub fn request_notification_listener() -> bool {
 }
 
 
+/// The active media session as the notification listener serialized it,
+/// or none. See `HorizonNowPlayingService`.
+pub fn now_playing_json() -> Option<String> {
+    with_context(|env, activity| {
+        // The service is an app class: find it through the app's own class
+        // loader, not the system one a raw FindClass uses.
+        let loader = env
+            .call_method(
+                activity,
+                "getClassLoader",
+                "()Ljava/lang/ClassLoader;",
+                &[],
+            )?
+            .l()?;
+        let class_name = JObject::from(
+            env.new_string("dev.horizon.android.HorizonNowPlayingService")?,
+        );
+        let class = env.call_method(
+            &loader,
+            "loadClass",
+            "(Ljava/lang/String;)Ljava/lang/Class;",
+            &[JValue::Object(&class_name)],
+        )?;
+        let class = class.l()?;
+        let class = jni::objects::JClass::from(class);
+        let json = env.call_static_method(
+            &class,
+            "currentSnapshotJson",
+            "()Ljava/lang/String;",
+            &[],
+        )?;
+        let json = json.l()?;
+        if json.is_null() {
+            return Ok(None);
+        }
+        Ok(Some(env.get_string((&json).into())?.into()))
+    })
+    .flatten()
+}
+
 pub fn open_url(url: &str) -> bool {
     if !url.starts_with("https://") && !url.starts_with("http://") {
         return false;

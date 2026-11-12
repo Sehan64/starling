@@ -286,7 +286,10 @@ impl Game<'_> {
         if texts.is_empty() && texts2.is_empty() {
             return;
         }
-        self.mark_translucent_entity(out.len(), "minecraft:text_display");
+        // Mod world texts are drawn with the opaque ENTITIES pass, like name
+        // tags: the pack's translucent-entities program drops the font's
+        // vertex-alpha quads.
+        self.mark_entity(out.len(), "minecraft:text_display");
         let now = time_now();
         let (view_yaw, view_pitch) =
             if self.camera_type == super::perspective::CameraType::ThirdPersonFront {

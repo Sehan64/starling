@@ -347,12 +347,12 @@ cargo horizon-mod test                          # the mod's tests/*.toml scripts
 The manifest of a client code mod is `api = "0.1"`, `side = "client"`, the capabilities it uses and, for the ones marked experimental in
 [the reference](api/mods-reference.md) (generated from the WIT; raise it with `HORIZON_WRITE_DOCS=1 cargo test -p horizon-mods --features pack --test api_reference`),
 the same names in `experimental = [...]`. Which API level a build serves, and the functions each level added, live in
-`crates/horizon-mods/src/api_level.rs`; the game's mark (`horizon-mod-api-level:0009;` level 9 today) lets the launcher refuse a mod meant for a newer Horizon with an
+`crates/horizon-mods/src/api_level.rs`; the game's mark (`horizon-mod-api-level:0010;` level 10 today) lets the launcher refuse a mod meant for a newer Horizon with an
 "update Horizon" instead of a linking error. The example is [Show the Lyrics](https://github.com/Sehan64/show-the-lyrics-horizon), which
 uses `render` (the billboarded lines of the synced lyrics, through `render.set-world-text`), `input`, `ui`, `storage` and `lyrics`.
 
 - Capability `render` draws for the mod with the game's own renderer (HUD shapes, a corner panel, the camera shake, zoom, a minimap, distant terrain).
-  Level 8 added `render.set-world-text`: billboarded text lines in the world. Level 9 adds `render.set-world-text2`: the same with per-glyph letter spacing, billboard-plane rotation (`roll`), an outline with adjustable thickness, a background box behind the line, a glow in its own colour and a sparkle amount multiplier.
+  Level 8 added `render.set-world-text`: billboarded text lines in the world. Level 9 adds `render.set-world-text2`: the same with per-glyph letter spacing, billboard-plane rotation (`roll`), an outline with adjustable thickness, a background box behind the line, a glow in its own colour and a sparkle amount multiplier. Level 10 adds `render.set-post-world-text2`: the same lines drawn after the world post pass (a shader pack's composite), on top of the finished image without depth testing, so they stay visible with a pack picked at the cost of not being lit or occluded by the pack.
 - Capability `lyrics` (experimental, level 8) tells a mod what plays on this device: the media session's title, artist, album, length,
   position and the cover art's colour, plus the track's lyrics from lrclib.net (the title, artist, album and length are the only bytes that leave).
   It reads Android's media sessions through the `HorizonNowPlayingService` notification listener, which the player grants under **Notification

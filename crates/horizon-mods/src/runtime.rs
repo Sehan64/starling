@@ -424,6 +424,8 @@ struct State {
     world_text: Vec<WorldTextShape>,
     /// Capability `render`'s level-9 world texts (`world-text2`).
     world_text2: Vec<WorldTextShape2>,
+    /// Capability `render`'s level-10 world texts (`post-world-text2`).
+    world_texts_post2: Vec<WorldTextShape2>,
     /// Capability `lyrics`'s platform, lent by the game.
     lyrics: Arc<dyn LyricsPlatform>,
     /// Capability `render`'s zoom, when the mod zooms.
@@ -662,6 +664,7 @@ impl Mods {
             corner: None,
             world_text: Vec::new(),
             world_text2: Vec::new(),
+            world_texts_post2: Vec::new(),
             lyrics,
             zoom: None,
             minimap: None,
@@ -1019,6 +1022,14 @@ impl Mods {
             .iter()
             .filter_map(|e| e.run.as_ref())
             .flat_map(|run| run.store.data().world_text2.iter())
+    }
+    /// The running mods' level-10 world texts, drawn after the world post
+    /// pass (a shader pack's composite), in load order.
+    pub fn world_texts_post2(&self) -> impl Iterator<Item = &WorldTextShape2> {
+        self.entries
+            .iter()
+            .filter_map(|e| e.run.as_ref())
+            .flat_map(|run| run.store.data().world_texts_post2.iter())
     }
     /// Some running mod calls `game.raycast`: the snapshot needs a
     /// [`Snapshot::view_hit`].
@@ -2085,6 +2096,9 @@ impl render::Host for State {
     }
     fn set_world_text2(&mut self, shapes: Vec<render::WorldText2>) {
         self.world_text2 = clip_world_text2(shapes);
+    }
+    fn set_post_world_text2(&mut self, shapes: Vec<render::WorldText2>) {
+        self.world_texts_post2 = clip_world_text2(shapes);
     }
     fn frame_stats(&mut self) -> FrameRate {
         let (fps, min, low) = self.snapshot.frame;

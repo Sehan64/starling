@@ -290,6 +290,41 @@ impl Game<'_> {
         // tags: the pack's translucent-entities program drops the font's
         // vertex-alpha quads.
         self.mark_entity(out.len(), "minecraft:text_display");
+        self.push_world_texts(
+            camera,
+            texts.into_iter().chain(texts2),
+            out,
+            see_through,
+            false,
+        );
+        self.mark_translucent_entity(out.len(), "");
+    }
+
+    /// `render.set-post-world-text2`'s quads: drawn after the world post
+    /// pass (a shader pack's composite), over the finished image. Not
+    /// blended into the entity stream, not packed-claimed: the pack never
+    /// sees these.
+    pub(super) fn mod_post_world_text_geometry(
+        &mut self,
+        camera: glam::DVec3,
+        out: &mut Vec<Vertex>,
+    ) {
+        let shapes: Vec<_> = self.mods.mods.world_texts_post2().cloned().collect();
+        if shapes.is_empty() {
+            return;
+        }
+        // The post pass draws every shape, so the see-through ones share `out`.
+        self.push_world_texts(camera, shapes.into_iter(), out, &mut Vec::new(), true);
+    }
+
+    fn push_world_texts(
+        &mut self,
+        camera: glam::DVec3,
+        shapes: impl Iterator<Item = horizon_mods::WorldTextShape2>,
+        out: &mut Vec<Vertex>,
+        see_through: &mut Vec<Vertex>,
+        post: bool,
+    ) {
         let now = time_now();
         let (view_yaw, view_pitch) =
             if self.camera_type == super::perspective::CameraType::ThirdPersonFront {
@@ -301,7 +336,7 @@ impl Game<'_> {
         let right = forward.cross(glam::DVec3::Y).normalize_or_zero();
         let up = right.cross(forward).normalize_or_zero();
         let away = forward.as_vec3() * 0.002;
-        for shape in texts.into_iter().chain(texts2) {
+        for shape in shapes {
             let o = glam::DVec3::new(
                 f64::from(shape.at[0]),
                 f64::from(shape.at[1]),
@@ -347,7 +382,7 @@ impl Game<'_> {
             let x = -width / 2.0;
             let mut batch = HudBatch::new([1, 1]);
             draw_spans(atlas, &mut batch, &shape, &text, width, x, 0.0, now);
-            let target: &mut Vec<Vertex> = if shape.see_through {
+            let target: &mut Vec<Vertex> = if shape.see_through && !post {
                 &mut *see_through
             } else {
                 &mut *out
@@ -367,6 +402,5 @@ impl Game<'_> {
             }
             self.map_patches.extend(batch.patches);
         }
-        self.mark_translucent_entity(out.len(), "");
     }
 }

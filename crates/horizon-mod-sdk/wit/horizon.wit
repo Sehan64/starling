@@ -502,6 +502,13 @@ interface render {
     /// until replaced (an empty list removes them). At most 64; the rest
     /// are dropped.
     set-world-text2: func(texts: list<world-text2>);
+    /// Like `set-world-text2`, but drawn after the world post pass (a
+    /// shader pack's composite), so the text stays visible with a pack
+    /// picked. The text is world-aligned and billboarded like the other
+    /// hooks, drawn on top of the finished image without depth testing:
+    /// it is not occluded, not depth tested and not re-lit by the pack.
+    /// An empty list removes them.
+    set-post-world-text2: func(texts: list<world-text2>);
 }
 
 /// What the game calls. Only the hooks `init` asks for are ever called.

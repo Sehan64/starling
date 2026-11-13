@@ -507,6 +507,7 @@ A line of text in the world. `set-world-text` draws it.
 | `set-far-terrain` | `func(far-terrain: option<far-terrain>)` | Draws the world beyond the render distance as distant terrain, out to `distance` chunks, until the next call (none ends it). The game builds it on its own workers, from the chunks already loaded or saved and, where nobody has been, from the world's generator; the simulation distance doesn't change. Only worlds whose generator the game has (single player and a LAN world you host) show it. The player's own LOD Distance setting, when on, wins. One far terrain shows at a time: the first loaded mod's. |
 | `set-world-text` | `func(texts: list<world-text>)` | Replaces the mod's world texts, drawn billboarded to the camera until replaced (an empty list removes them). At most 64; the rest are dropped. |
 | `set-world-text2` | `func(texts: list<world-text2>)` | Replaces the mod's world texts, drawn billboarded to the camera until replaced (an empty list removes them). At most 64; the rest are dropped. |
+| `set-post-world-text2` | `func(texts: list<world-text2>)` | Like `set-world-text2`, but drawn after the world post pass (a shader pack's composite), so the text stays visible with a pack picked. The text is world-aligned and billboarded like the other hooks, drawn on top of the finished image without depth testing: it is not occluded, not depth tested and not re-lit by the pack. An empty list removes them. |
 
 ## `events`
 

@@ -2401,19 +2401,30 @@ fn drawable_size(width: u32, height: u32, max: u32) -> bool {
 /// The swapchain format: a non-sRGB target, because vanilla blends and tints in gamma
 /// space, and 8-bit, because wgpu gives `Rgba16Float` the linear `ExtendedSrgb` color
 /// space: the compositor would read these gamma-encoded values as linear light and wash
-/// every colour out.
+/// every colour out. `rgba_first` asks for `Rgba8Unorm` where both are offered: PanVK's
+/// Android WSI advertises BGRA but allocates its window buffers as RGBA, so a BGRA
+/// swapchain fails to import.
 fn surface_format(
     formats: &[wgpu::TextureFormat],
     default: wgpu::TextureFormat,
+    rgba_first: bool,
 ) -> wgpu::TextureFormat {
-    [
-        wgpu::TextureFormat::Bgra8Unorm,
-        wgpu::TextureFormat::Rgba8Unorm,
-    ]
-    .into_iter()
-    .find(|f| formats.contains(f))
-    .or_else(|| formats.iter().copied().find(|f| !f.is_srgb()))
-    .unwrap_or(default)
+    let order = if rgba_first {
+        [
+            wgpu::TextureFormat::Rgba8Unorm,
+            wgpu::TextureFormat::Bgra8Unorm,
+        ]
+    } else {
+        [
+            wgpu::TextureFormat::Bgra8Unorm,
+            wgpu::TextureFormat::Rgba8Unorm,
+        ]
+    };
+    order
+        .into_iter()
+        .find(|f| formats.contains(f))
+        .or_else(|| formats.iter().copied().find(|f| !f.is_srgb()))
+        .unwrap_or(default)
 }
 /// The 16-bit frame HDR output draws into where it can (`Renderer::frame_format`). Unorm
 /// rather than float: it clips at white after every pass as the 8-bit frame does, so light
@@ -13832,14 +13843,30 @@ mod tests {
         // RADV's Wayland surfaces list the linear fp16 format first; choosing it makes the
         // compositor read gamma-encoded values as linear light.
         assert_eq!(
-            surface_format(&[Rgba16Float, Bgra8UnormSrgb, Bgra8Unorm], Bgra8UnormSrgb),
+            surface_format(
+                &[Rgba16Float, Bgra8UnormSrgb, Bgra8Unorm],
+                Bgra8UnormSrgb,
+                false
+            ),
             Bgra8Unorm
         );
         assert_eq!(
-            surface_format(&[Bgra8UnormSrgb, Rgba8Unorm], Bgra8UnormSrgb),
+            surface_format(&[Bgra8UnormSrgb, Rgba8Unorm], Bgra8UnormSrgb, false),
             Rgba8Unorm
         );
-        assert_eq!(surface_format(&[Rgba16Float], Bgra8UnormSrgb), Rgba16Float);
+        assert_eq!(
+            surface_format(&[Rgba16Float], Bgra8UnormSrgb, false),
+            Rgba16Float
+        );
+        // PanVK's Android WSI allocates RGBA window buffers whatever it advertises.
+        assert_eq!(
+            surface_format(&[Bgra8Unorm, Rgba8Unorm], Bgra8Unorm, true),
+            Rgba8Unorm
+        );
+        assert_eq!(
+            surface_format(&[Bgra8Unorm, Bgra8UnormSrgb], Bgra8Unorm, true),
+            Bgra8Unorm
+        );
     }
     /// A Wayland surface on a compositor with colour management, as wgpu lists it (Mesa 26.2
     /// ANV on an Intel HD 620 under weston 16): wide formats first. The pre-#1075 choice,
@@ -13858,7 +13885,7 @@ mod tests {
             Rgba8UnormSrgb,
             Rgba8Unorm,
         ];
-        assert_eq!(surface_format(&wayland, Bgra8UnormSrgb), Bgra8Unorm);
+        assert_eq!(surface_format(&wayland, Bgra8UnormSrgb, false), Bgra8Unorm);
         // Without Bgra8: Rgba8, still not a 16- or 10-bit format.
         let without_bgra = [
             Rgba16Float,
@@ -13867,7 +13894,10 @@ mod tests {
             Rgba8UnormSrgb,
             Rgba8Unorm,
         ];
-        assert_eq!(surface_format(&without_bgra, Rgba8UnormSrgb), Rgba8Unorm);
+        assert_eq!(
+            surface_format(&without_bgra, Rgba8UnormSrgb, false),
+            Rgba8Unorm
+        );
     }
     /// The 16-bit frame only with HDR on, Smooth Gradients on, an HDR surface and a device
     /// that draws it; in every other case the swapchain's 8-bit format, as before it existed.

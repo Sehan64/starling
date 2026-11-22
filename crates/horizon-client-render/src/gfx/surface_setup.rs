@@ -2,8 +2,8 @@
 //! an adapter that can't present to the window gives way to another of its backend
 //! (#13493).
 use super::{
-    Renderer, check_layers, cull, describe_adapter, is_software, oit, pack_timing, startup_step,
-    surface_format, timing,
+    Renderer, check_layers, cull, describe_adapter, driver_quirks, is_software, oit, pack_timing,
+    startup_step, surface_format, timing,
 };
 // Ray tracing on request, which the device needs from its creation (gfx.rs may not grow).
 #[path = "ray_query.rs"]
@@ -36,8 +36,8 @@ pub(super) fn set_up_surface(
             size.height.clamp(1, max_side),
         )
         .ok_or("surface has no supported configuration")?;
-    let panvk = adapter.get_info().driver.eq_ignore_ascii_case("panvk");
-    config.format = surface_format(&caps.formats, config.format, panvk);
+    let quirks = driver_quirks(&adapter.get_info().driver);
+    config.format = surface_format(&caps.formats, config.format, quirks.rgba_first);
     config.view_formats = vec![config.format.remove_srgb_suffix()];
     // Screenshots copy the presented frame back from the swapchain, frame
     // generation's present thread copies its frames in.

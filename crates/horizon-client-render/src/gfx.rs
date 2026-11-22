@@ -2426,6 +2426,19 @@ fn surface_format(
         .or_else(|| formats.iter().copied().find(|f| !f.is_srgb()))
         .unwrap_or(default)
 }
+/// What a driver's name says about the window surface it can import. One table, so a
+/// new driver quirk does not grow another string comparison in the surface setup.
+#[derive(Clone, Copy, Debug, Default)]
+struct DriverQuirks {
+    /// PanVK's Android WSI advertises BGRA but allocates its window buffers as RGBA.
+    rgba_first: bool,
+}
+fn driver_quirks(driver: &str) -> DriverQuirks {
+    match driver.to_ascii_lowercase().as_str() {
+        "panvk" => DriverQuirks { rgba_first: true },
+        _ => DriverQuirks::default(),
+    }
+}
 /// The 16-bit frame HDR output draws into where it can (`Renderer::frame_format`). Unorm
 /// rather than float: it clips at white after every pass as the 8-bit frame does, so light
 /// added past white (the sun on the sky) and then blended over (glass) looks the same.
@@ -5892,11 +5905,24 @@ impl Renderer {
         width: u32,
         height: u32,
     ) -> Result<()> {
-        *self
-            .spare_surface
-            .get_mut()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(surface);
-        self.resume(width, height)
+        if !drawable_size(width, height, self.device.limits().max_texture_dimension_2d) {
+            return Ok(());
+        }
+        // The loading screen configured this surface on the same device: a second
+        // configure would make a second swapchain on the same window, which Android
+        // refuses.
+        let resized = [width, height] != [self.config.width, self.config.height];
+        self.config.width = width;
+        self.config.height = height;
+        if resized {
+            self.depth = Self::depth(&self.device, &self.config);
+        }
+        self.surface = Some(Arc::new(surface));
+        self.surface_unconfigured = false;
+        self.suspended = false;
+        self.detached = false;
+        self.surface_recreated();
+        Ok(())
     }
     /// The window is back, maybe at another size: a new surface on it.
     pub fn resume(&mut self, width: u32, height: u32) -> Result<()> {
@@ -13867,6 +13893,14 @@ mod tests {
             surface_format(&[Bgra8Unorm, Bgra8UnormSrgb], Bgra8Unorm, true),
             Bgra8Unorm
         );
+    }
+    #[test]
+    fn driver_quirks_follow_the_driver_name() {
+        use super::driver_quirks;
+        assert!(driver_quirks("panvk").rgba_first);
+        assert!(driver_quirks("PanVK").rgba_first);
+        assert!(!driver_quirks("Mali-G615 MC6").rgba_first);
+        assert!(!driver_quirks("").rgba_first);
     }
     /// A Wayland surface on a compositor with colour management, as wgpu lists it (Mesa 26.2
     /// ANV on an Intel HD 620 under weston 16): wide formats first. The pre-#1075 choice,
